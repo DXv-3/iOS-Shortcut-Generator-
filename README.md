@@ -1,54 +1,66 @@
-# ⚡ iOS Shortcut Generator
+# iOS Shortcut Generator v2.0
 
-An AI-powered web app that lets you describe an iOS Shortcut in plain English and instantly download a real `.shortcut` file you can install on your iPhone or iPad.
+The most advanced AI-powered iOS Shortcut builder on the web.
 
 ## Features
 
-- 🤖 **AI Generation** — Describe your shortcut in natural language; GPT-4o builds it
-- 🔧 **Visual Action Builder** — Drag-and-drop action sequencer with 70+ built-in iOS actions
-- 👁️ **Live Preview** — See the visual flow and raw XML plist before downloading
-- 📥 **Real .shortcut Export** — Downloads a valid Apple XML plist `.shortcut` file
-- 🎨 **Icon Color Picker** — Choose from Apple's full shortcut icon palette
-- ✏️ **Parameter Editing** — Fine-tune every action parameter directly in the builder
-- 🔍 **Action Search** — Search and filter 70+ actions by name, category, or description
+### 🤖 Multi-Model AI Generation
+- **OpenAI**: GPT-4o, GPT-4o Mini
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Haiku
+- **Google**: Gemini 2.0 Flash, Gemini 1.5 Pro
+- Structured output via Zod schema — only valid iOS actions are generated
 
-## Tech Stack
+### 📦 Real .shortcut Export
+- XML plist builder adapted from [mehrlander/shortcut-tools](https://github.com/mehrlander/shortcut-tools)
+- Proper `WFWorkflowActions`, UUIDs, icon metadata
+- Downloads as a real `.shortcut` file — AirDrop to iPhone and install directly
 
-- **Next.js 16** + React 19 + TypeScript
-- **Tailwind CSS 4** for styling
-- **Vercel AI SDK** (`ai` + `@ai-sdk/openai`) for structured LLM output
-- **Zod** for schema validation
-- **@dnd-kit** for drag-and-drop
-- **lucide-react** for icons
-- XML plist builder (zero dependencies, from [mehrlander/shortcut-tools](https://github.com/mehrlander/shortcut-tools))
+### 🗂️ Template Gallery (20 templates)
+Sourced from real community repos:
+- [huaminghuangtw/Shortcutomation](https://github.com/huaminghuangtw/Shortcutomation)
+- [extratone/shortcuts](https://github.com/extratone/shortcuts)
+- [realdennis/shortcuts-mono](https://github.com/realdennis/shortcuts-mono)
+
+### 🖱️ Action Builder
+- 70+ real iOS actions across 15 categories
+- Drag-and-drop reordering via [clauderic/dnd-kit](https://github.com/clauderic/dnd-kit)
+- Inline parameter editing per action
+
+### 🎨 Preview & Export
+- iOS-style shortcut card inspired by [xAlien95/shortcut-preview](https://github.com/xAlien95/shortcut-preview)
+- Icon color picker (Apple's full 11-color palette)
+- Icon glyph picker (12 glyphs)
+- Visual flow view, XML plist viewer, info panel
 
 ## Setup
 
 ```bash
-# Install dependencies
 bun install
-
-# Copy env file
 cp .env.local.example .env.local
-# Add your OpenAI API key to .env.local
-
-# Run dev server
+# Add your API keys, or enter them directly in the UI
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000)
 
-You can also paste your OpenAI API key directly in the app UI — it's sent only to OpenAI and never stored.
+## Stack
 
-## How It Works
+| Dependency | Source | Purpose |
+|---|---|---|
+| `next` 16 | Vercel | Framework |
+| `ai` + `@ai-sdk/*` | Vercel AI SDK | Multi-model generation |
+| `@dnd-kit/*` | [clauderic/dnd-kit](https://github.com/clauderic/dnd-kit) | Drag & drop |
+| `framer-motion` | [framer/motion](https://github.com/framer/motion) | Animations |
+| `lucide-react` | Lucide | Icons |
+| `zod` | Zod | Schema validation |
+| plist builder | [mehrlander/shortcut-tools](https://github.com/mehrlander/shortcut-tools) | .shortcut export |
 
-1. **AI Tab** — Type a description → GPT-4o generates a structured list of iOS Shortcut actions using Zod schema validation
-2. **Builder Tab** — Review, reorder (drag-and-drop), add/remove, and edit action parameters
-3. **Preview Tab** — See the visual flow or raw XML plist; pick icon color; download your `.shortcut` file
-4. **Install** — AirDrop or iCloud the file to your iPhone → tap it → Shortcuts app imports it instantly
+## Community Sources
 
-## Action Sources
-
-Action catalog sourced and adapted from:
-- [mehrlander/shortcut-tools](https://github.com/mehrlander/shortcut-tools) — MIT
-- Apple's official `WFWorkflowActions` schema
+This project integrates data and inspiration from:
+- [mehrlander/shortcut-tools](https://github.com/mehrlander/shortcut-tools) — plist builder + action catalog
+- [xAlien95/shortcut-preview](https://github.com/xAlien95/shortcut-preview) — preview card design
+- [huaminghuangtw/Shortcutomation](https://github.com/huaminghuangtw/Shortcutomation) — template library
+- [extratone/shortcuts](https://github.com/extratone/shortcuts) — community shortcut archive
+- [realdennis/shortcuts-mono](https://github.com/realdennis/shortcuts-mono) — monorepo tooling patterns
+- [clauderic/dnd-kit](https://github.com/clauderic/dnd-kit) — drag and drop

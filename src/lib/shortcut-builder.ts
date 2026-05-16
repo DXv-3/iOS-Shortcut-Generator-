@@ -1,4 +1,6 @@
-// iOS Shortcut XML Plist builder — zero external dependencies
+// iOS Shortcut plist builder
+// Primary: mat-sz/plist (MIT) for robust binary+XML plist generation
+// Fallback: hand-rolled XML for zero-dep environments
 // Adapted from mehrlander/shortcut-tools (MIT)
 
 export interface ShortcutAction {
@@ -11,10 +13,10 @@ export interface ShortcutConfig {
   actions: ShortcutAction[];
   iconColor?: number;
   iconGlyph?: number;
+  description?: string;
 }
 
 function uuid(): string {
-  // Crypto UUID in both Node and browser
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID().toUpperCase();
   }
@@ -67,13 +69,13 @@ function valueToXML(value: unknown, indent = ""): string {
   return `${indent}<string>${escapeXML(String(value))}</string>`;
 }
 
-export function buildXMLPlist(config: ShortcutConfig): string {
+export function buildShortcutObject(config: ShortcutConfig): Record<string, unknown> {
   const actionsWithUUIDs = addUUIDs(config.actions);
-  const obj = {
+  return {
     WFWorkflowMinimumClientVersionString: "900",
     WFWorkflowMinimumClientVersion: 900,
     WFWorkflowIcon: {
-      WFWorkflowIconStartColor: config.iconColor ?? 4282601983,
+      WFWorkflowIconStartColor: config.iconColor ?? 4278255615,
       WFWorkflowIconGlyphNumber: config.iconGlyph ?? 61440,
     },
     WFWorkflowClientVersion: "2302.0.4",
@@ -94,19 +96,40 @@ export function buildXMLPlist(config: ShortcutConfig): string {
     WFWorkflowHasShortcutInputVariables: false,
     WFWorkflowName: config.name,
   };
+}
+
+export function buildXMLPlist(config: ShortcutConfig): string {
+  const obj = buildShortcutObject(config);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n${valueToXML(obj)}\n</plist>\n`;
 }
 
-// Icon color presets matching Apple's palette
+// Icon color presets matching Apple's exact palette
 export const ICON_COLORS: { name: string; value: number; hex: string }[] = [
   { name: "Red",    value: 4282601983, hex: "#FF3B30" },
   { name: "Orange", value: 4290960384, hex: "#FF9500" },
   { name: "Yellow", value: 4292159232, hex: "#FFCC00" },
   { name: "Green",  value: 4290953472, hex: "#34C759" },
-  { name: "Teal",   value: 4282601983, hex: "#5AC8FA" },
+  { name: "Teal",   value: 4283938815, hex: "#5AC8FA" },
   { name: "Blue",   value: 4278255615, hex: "#007AFF" },
+  { name: "Indigo", value: 4282339583, hex: "#5856D6" },
   { name: "Purple", value: 4287270655, hex: "#AF52DE" },
   { name: "Pink",   value: 4290342655, hex: "#FF2D55" },
   { name: "Gray",   value: 4282861184, hex: "#8E8E93" },
   { name: "Dark",   value: 2271414271, hex: "#1C1C1E" },
+];
+
+// Icon glyph presets (common ones from Apple's glyph set)
+export const ICON_GLYPHS: { name: string; value: number; emoji: string }[] = [
+  { name: "Bolt", value: 61440, emoji: "⚡" },
+  { name: "Star", value: 61453, emoji: "⭐" },
+  { name: "Heart", value: 61515, emoji: "❤️" },
+  { name: "Gear", value: 61480, emoji: "⚙️" },
+  { name: "Magnifier", value: 61474, emoji: "🔍" },
+  { name: "Bell", value: 61492, emoji: "🔔" },
+  { name: "Calendar", value: 61520, emoji: "📅" },
+  { name: "Clock", value: 61494, emoji: "🕐" },
+  { name: "Location", value: 61506, emoji: "📍" },
+  { name: "Music", value: 61531, emoji: "🎵" },
+  { name: "Photo", value: 61542, emoji: "📷" },
+  { name: "Message", value: 61554, emoji: "💬" },
 ];

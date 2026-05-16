@@ -1,14 +1,13 @@
 "use client";
-import { useState, useCallback } from "react";
-import { ActionBuilder } from "./ActionBuilder";
+import { useState } from "react";
 import { AIPanel } from "./AIPanel";
+import { ActionBuilder } from "./ActionBuilder";
 import { ShortcutPreview } from "./ShortcutPreview";
-import { cn } from "@/lib/cn";
+import { TemplateGallery } from "./TemplateGallery";
 import type { ShortcutAction } from "@/lib/shortcut-builder";
-import { ICON_COLORS } from "@/lib/shortcut-builder";
-import { Wand2, List, Eye, Download, Zap, Github } from "lucide-react";
-
-export type Tab = "ai" | "builder" | "preview";
+import { ICON_COLORS, ICON_GLYPHS } from "@/lib/shortcut-builder";
+import type { ShortcutTemplate } from "@/lib/templates";
+import { Wand2, Wrench, Eye, BookOpen } from "lucide-react";
 
 export interface ShortcutState {
   name: string;
@@ -16,26 +15,34 @@ export interface ShortcutState {
   actions: ShortcutAction[];
   iconColor: number;
   iconGlyph: number;
+  suggestedTrigger?: string;
+  tips?: string[];
 }
 
-const DEFAULT_STATE: ShortcutState = {
+const INITIAL_STATE: ShortcutState = {
   name: "My Shortcut",
   description: "",
   actions: [],
-  iconColor: 4278255615,
-  iconGlyph: 61440,
+  iconColor: ICON_COLORS[5].value, // Blue
+  iconGlyph: ICON_GLYPHS[0].value, // Bolt
 };
+
+type Tab = "ai" | "builder" | "templates" | "preview";
+
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "ai",        label: "AI Generate",    icon: <Wand2 size={14} /> },
+  { id: "builder",  label: "Action Builder",  icon: <Wrench size={14} /> },
+  { id: "templates",label: "Templates",       icon: <BookOpen size={14} /> },
+  { id: "preview",  label: "Preview & Export", icon: <Eye size={14} /> },
+];
 
 export function ShortcutGenerator() {
   const [tab, setTab] = useState<Tab>("ai");
-  const [state, setState] = useState<ShortcutState>(DEFAULT_STATE);
+  const [state, setState] = useState<ShortcutState>(INITIAL_STATE);
   const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState("");
 
-  const handleExport = useCallback(async () => {
-    if (!state.actions.length) { setExportError("Add at least one action first."); return; }
+  const handleExport = async () => {
     setExporting(true);
-    setExportError("");
     try {
       const res = await fetch("/api/export", {
         method: "POST",
@@ -47,126 +54,109 @@ export function ShortcutGenerator() {
           iconGlyph: state.iconGlyph,
         }),
       });
-      if (!res.ok) {
-        const j = await res.json();
-        throw new Error(j.error || "Export failed");
-      }
+      if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${state.name}.shortcut`;
+      a.download = `${state.name || "shortcut"}.shortcut`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e: unknown) {
-      setExportError(e instanceof Error ? e.message : "Export failed");
+    } catch (e) {
+      alert(`Export failed: ${e}`);
     } finally {
       setExporting(false);
     }
-  }, [state]);
+  };
 
-  const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "ai", label: "AI Generate", icon: <Wand2 size={15} /> },
-    { id: "builder", label: "Action Builder", icon: <List size={15} /> },
-    { id: "preview", label: "Preview & Export", icon: <Eye size={15} /> },
-  ];
+  const handleUseTemplate = (template: ShortcutTemplate) => {
+    setState({
+      name: template.name,
+      description: template.description,
+      actions: template.actions,
+      iconColor: template.iconColor,
+      iconGlyph: ICON_GLYPHS[0].value,
+      tips: [],
+    });
+    setTab("preview");
+  };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)" }}>
+    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       {/* Header */}
-      <header className="border-b flex items-center justify-between px-6 py-3 shrink-0"
-        style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
-            style={{ background: "linear-gradient(135deg, var(--accent), var(--accent2))" }}>
-            ⚡
+      <header className="border-b sticky top-0 z-40 backdrop-blur-xl" style={{ borderColor: "var(--border)", background: "rgba(0,0,0,0.7)" }}>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: "linear-gradient(135deg, #007AFF, #AF52DE)" }}>
+              ⚡
+            </div>
+            <div>
+              <h1 className="text-sm font-bold" style={{ color: "var(--text)" }}>iOS Shortcut Generator</h1>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>Powered by GPT-4o · Claude · Gemini</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-base font-bold tracking-tight" style={{ color: "var(--text)" }}>
-              iOS Shortcut Generator
-            </h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>AI-powered • Real .shortcut files</p>
-          </div>
+          {state.actions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--surface2)", color: "var(--text-muted)" }}>
+                {state.actions.length} actions
+              </span>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
+                style={{ background: "var(--accent)", color: "white" }}>
+                {exporting ? "Exporting…" : "Export"}
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <a href="https://github.com/DXv-3/iOS-Shortcut-Generator-" target="_blank"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
-            style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-            <Github size={13} />
-            Source
-          </a>
-          <button
-            onClick={handleExport}
-            disabled={exporting || state.actions.length === 0}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: state.actions.length > 0 ? "linear-gradient(135deg, var(--accent), var(--accent2))" : "var(--surface2)",
-              color: "white",
-            }}>
-            {exporting ? <span className="animate-spin">⟳</span> : <Download size={13} />}
-            {exporting ? "Exporting…" : "Download .shortcut"}
-          </button>
+
+        {/* Tabs */}
+        <div className="max-w-6xl mx-auto px-4 pb-0 flex gap-1 overflow-x-auto">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap transition-all border-b-2"
+              style={{
+                borderColor: tab === t.id ? "var(--accent)" : "transparent",
+                color: tab === t.id ? "var(--accent)" : "var(--text-muted)",
+              }}>
+              {t.icon}
+              {t.label}
+              {t.id === "templates" && (
+                <span className="px-1 py-0.5 rounded text-xs" style={{ background: "var(--surface2)", color: "var(--text-muted)", fontSize: "10px" }}>20</span>
+              )}
+            </button>
+          ))}
         </div>
       </header>
 
-      {exportError && (
-        <div className="mx-6 mt-3 px-4 py-2 rounded-lg text-sm flex items-center gap-2"
-          style={{ background: "#ef444420", color: "var(--red)", border: "1px solid #ef444440" }}>
-          ⚠️ {exportError}
-          <button onClick={() => setExportError("")} className="ml-auto text-xs opacity-60 hover:opacity-100">✕</button>
-        </div>
-      )}
-
-      {/* Action count badge */}
-      <div className="px-6 pt-4 flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-          style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
-          <Zap size={11} style={{ color: "var(--accent)" }} />
-          <span style={{ color: "var(--text-muted)" }}>
-            {state.actions.length === 0
-              ? "No actions yet"
-              : `${state.actions.length} action${state.actions.length !== 1 ? "s" : ""}`}
-          </span>
-        </div>
-        {state.actions.length > 0 && (
-          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-            <span className="w-2 h-2 rounded-full" style={{ background: "var(--green)" }} />
-            Ready to export
-          </div>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 px-6 pt-4">
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              tab === t.id
-                ? "text-white"
-                : "hover:opacity-80"
-            )}
-            style={{
-              background: tab === t.id ? "linear-gradient(135deg, var(--accent), var(--accent2))" : "var(--surface2)",
-              color: tab === t.id ? "white" : "var(--text-muted)",
-              border: `1px solid ${tab === t.id ? "transparent" : "var(--border)"}`,
-            }}>
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main content */}
-      <main className="flex-1 px-6 py-5 overflow-auto">
+      {/* Content */}
+      <main className="max-w-6xl mx-auto px-4 py-6">
         {tab === "ai" && (
-          <AIPanel state={state} onUpdate={setState} onSwitchTab={setTab} />
+          <AIPanel
+            state={state}
+            onStateChange={setState}
+            onGoToPreview={() => setTab("preview")}
+          />
         )}
         {tab === "builder" && (
-          <ActionBuilder state={state} onUpdate={setState} />
+          <ActionBuilder
+            state={state}
+            onStateChange={setState}
+          />
+        )}
+        {tab === "templates" && (
+          <TemplateGallery onUseTemplate={handleUseTemplate} />
         )}
         {tab === "preview" && (
-          <ShortcutPreview state={state} onUpdate={setState} onExport={handleExport} exporting={exporting} />
+          <ShortcutPreview
+            state={state}
+            onUpdate={setState}
+            onExport={handleExport}
+            exporting={exporting}
+          />
         )}
       </main>
     </div>

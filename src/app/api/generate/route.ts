@@ -1,62 +1,73 @@
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
-import { NextRequest, NextResponse } from "next/server";
 import { ACTIONS } from "@/lib/actions-catalog";
+import { MODEL_OPTIONS } from "@/lib/multi-model";
 
-const ActionSchema = z.object({
-  WFWorkflowActionIdentifier: z.string().describe("The exact iOS Shortcut action identifier"),
-  WFWorkflowActionParameters: z.record(z.unknown()).describe("Action parameters as key-value pairs"),
+const ShortcutActionSchema = z.object({
+  WFWorkflowActionIdentifier: z.string().describe("Exact iOS action identifier"),
+  WFWorkflowActionParameters: z.record(z.unknown()).describe("Action parameters"),
 });
 
 const ShortcutSchema = z.object({
-  name: z.string().describe("Short, descriptive shortcut name (max 40 chars)"),
-  description: z.string().describe("One sentence describing what this shortcut does"),
-  iconColorHex: z.string().describe("Best hex color for the icon, e.g. #007AFF"),
-  actions: z.array(ActionSchema).min(1).max(40).describe("Ordered list of iOS Shortcut actions"),
+  name: z.string().describe("Short, descriptive shortcut name"),
+  description: z.string().describe("One sentence description of what it does"),
+  actions: z.array(ShortcutActionSchema).min(1).max(25).describe("Ordered list of iOS Shortcut actions"),
+  iconColor: z.number().optional().describe("Apple icon color integer"),
+  iconGlyph: z.number().optional().describe("Apple icon glyph integer"),
+  suggestedTrigger: z.string().optional().describe("How to trigger this shortcut"),
+  tips: z.array(z.string()).optional().describe("2-3 usage tips"),
 });
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { prompt, model = "gpt-4o" } = await req.json();
-    if (!prompt?.trim()) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+    const { prompt, modelId, apiKey, anthropicKey, googleKey } = await req.json();
+    if (!prompt) return new Response(JSON.stringify({ error: "prompt required" }), { status: 400 });
+
+    const modelDef = MODEL_OPTIONS.find(m => m.id === (modelId ?? "gpt-4o")) ?? MODEL_OPTIONS[0];
+
+    const actionList = ACTIONS.slice(0, 120)
+      .map(a => `${a.id} — ${a.name} (${a.category})`)
+      .join("\n");
+
+    const systemPrompt = `You are an expert Apple Shortcuts engineer. Generate valid iOS Shortcuts using ONLY these real action identifiers:\n\n${actionList}\n\nRules:\n- Only use action identifiers from the list above\n- Parameters must match each action's schema\n- Build logical, useful workflows — not just a list of unrelated actions\n- Prefer 3-10 actions for most shortcuts\n- For conditionals, always include GroupingIdentifier in both the open and close tags`;
+
+    let model;
+    switch (modelDef.provider) {
+      case "openai": {
+        const key = apiKey;
+        if (!key) return new Response(JSON.stringify({ error: "OpenAI API key required" }), { status: 401 });
+        model = createOpenAI({ apiKey: key })(modelDef.model);
+        break;
+      }
+      case "anthropic": {
+        const key = anthropicKey;
+        if (!key) return new Response(JSON.stringify({ error: "Anthropic API key required" }), { status: 401 });
+        model = createAnthropic({ apiKey: key })(modelDef.model);
+        break;
+      }
+      case "google": {
+        const key = googleKey;
+        if (!key) return new Response(JSON.stringify({ error: "Google API key required" }), { status: 401 });
+        model = createGoogleGenerativeAI({ apiKey: key })(modelDef.model);
+        break;
+      }
+      default:
+        return new Response(JSON.stringify({ error: "Unknown provider" }), { status: 400 });
     }
 
-    const apiKey = req.headers.get("x-openai-key") || process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "OpenAI API key required" }, { status: 401 });
-    }
-
-    const actionList = ACTIONS.map(a =>
-      `• ${a.id} — ${a.name} (${a.category}): ${a.description}`
-    ).join("\n");
-
-    const systemPrompt = `You are an expert iOS Shortcuts developer. Your job is to generate valid, working iOS Shortcut action sequences based on user descriptions.
-
-Available actions (use ONLY these identifiers):
-${actionList}
-
-Rules:
-1. Only use WFWorkflowActionIdentifier values from the list above
-2. For control flow (if/repeat/menu), always include matching begin AND end actions with matching GroupingIdentifier UUID-like strings
-3. If/else blocks: mode 0 = begin, 1 = else, 2 = end; use identifier "is.workflow.actions.conditional"
-4. Repeat blocks: mode 0 = begin, 2 = end; repeat.count or repeat.each
-5. Variable names should be descriptive strings
-6. Parameters should match what Apple's Shortcuts app expects
-7. Generate practical, actually useful shortcuts
-8. Prefer built-in actions over third-party when possible`;
-
-    const { object } = await generateObject({
-      model: openai(model, { apiKey }),
+    const result = await generateObject({
+      model,
       schema: ShortcutSchema,
       system: systemPrompt,
-      prompt: `Create an iOS Shortcut for: ${prompt}`,
+      prompt,
     });
 
-    return NextResponse.json({ shortcut: object });
+    return Response.json({ shortcut: result.object });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Generation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), { status: 500 });
   }
 }
