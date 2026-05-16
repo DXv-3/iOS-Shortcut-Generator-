@@ -152,6 +152,7 @@ For complete documentation, see:
 - [CONTROL_FLOW.md](CONTROL_FLOW.md) - Repeat, Conditional, Menu patterns
 - [FILTERS.md](FILTERS.md) - Content filters for Find/Filter actions (photos, files, etc.)
 - [EXAMPLES.md](EXAMPLES.md) - Complete working examples
+- [QUICKREF.md](QUICKREF.md) - Quick reference for JS API and CLI
 
 ## Signing Shortcuts
 
@@ -180,7 +181,31 @@ The signing process:
 6. **Write to file** - Save as `.shortcut` (XML plist format is fine)
 7. **Sign** - Run `shortcuts sign` to make it importable
 
-## Key Rules
+## JavaScript Builder (Optional)
+
+For programmatic shortcut generation, use the included builder:
+
+```javascript
+const { ShortcutBuilder } = require('./shortcut-builder');
+
+// Create and build programmatically
+const s = new ShortcutBuilder('My Shortcut');
+const text = s.text('Hello World!');
+s.showResult(text.WFWorkflowActionParameters.UUID);
+fs.writeFileSync('my.shortcut', s.toXML());
+```
+
+### CLI Commands
+
+```bash
+node shortcut-cli.js hello              # Hello World shortcut
+node shortcut-cli.js ai                 # AI query shortcut
+node shortcut-cli.js weather            # Weather + AI report
+node shortcut-cli.js menu               # Menu demo
+node shortcut-cli.js custom myscript.js # Run custom script
+```
+
+### Key Rules
 
 1. **UUIDs must be uppercase**: `A1B2C3D4-E5F6-7890-ABCD-EF1234567890`
 2. **WFControlFlowMode is an integer**: Use `<integer>0</integer>` not `<string>0</string>`
